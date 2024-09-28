@@ -8,7 +8,9 @@ import (
 type node struct {
 	path     string
 	children map[string]*node
-	handler  HandleFunc
+	// 加一个通配符匹配
+	starChild *node
+	handler   HandleFunc
 }
 
 type router struct {
@@ -43,10 +45,8 @@ func (r *router) addRouter(method string, path string, handleFunc HandleFunc) {
 			path: "/",
 		}
 		r.trees[method] = root
-		fmt.Printf("/")
 	}
 
-	//
 	if path == "/" {
 		if root.handler != nil {
 			panic("根节点重复注册")
@@ -60,7 +60,7 @@ func (r *router) addRouter(method string, path string, handleFunc HandleFunc) {
 		child := root.childOrCreate(seg)
 		root = child
 	}
-	r.trees[method].PrintNode()
+	//r.trees[method].PrintNode()
 	if root.handler != nil {
 		panic("该节点已注册")
 	}
@@ -69,6 +69,12 @@ func (r *router) addRouter(method string, path string, handleFunc HandleFunc) {
 
 // /user
 func (n *node) childOrCreate(sig string) *node {
+	if sig == "*" {
+		n.starChild = &node{
+			path: sig,
+		}
+		return n.starChild
+	}
 	if n.children == nil {
 		n.children = map[string]*node{}
 	}
@@ -101,34 +107,12 @@ func (r *router) findRouter(method string, path string) (*node, bool) {
 		if root == nil {
 			return nil, false
 		}
+		if root.children == nil {
+			return root.starChild, root.starChild != nil
+		}
 		root = root.children[seg]
 	}
-	return root, true
-
-	//root, ok := r.trees[method]
-	//if !ok {
-	//	return nil, false
-	//}
-	//
-	//if path == "/" {
-	//	return root, true
-	//}
-	//
-	//// 这里把前置和后置的 / 都去掉
-	//path = strings.Trim(path, "/")
-	//
-	//// 按照斜杠切割
-	//segs := strings.Split(path, "/")
-	//for _, seg := range segs {
-	//	child, found := root.childOf(seg)
-	//	if !found {
-	//		return nil, false
-	//	}
-	//	root = child
-	//}
-	//// 代表我确实有这个节点
-	//// 但是节点是不是用户注册的有 handler 的，就不一定了
-	//return root, true
+	return root, root != nil
 }
 
 func (n *node) childOf(path string) (*node, bool) {
